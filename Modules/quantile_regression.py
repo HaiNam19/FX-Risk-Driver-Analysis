@@ -9,8 +9,6 @@ Key question: Does OLS underestimate tail sensitivity?
 Method: Subgradient descent minimizing asymmetric pinball loss.
   min Σ p_q(r_t - x_t'β_q)   where   p_q(u) = u(q - 1{u<0})
 
-Outputs:
-  outputs/03_quantile_regression.png
 """
 
 import numpy as np
@@ -48,10 +46,42 @@ def _fit_quantile(x,y,q, n_iter: int = 2000, learning_rate: float = 0.001):
         if loss < best_loss:
             best_loss = loss
             best_beta = beta.copy()
-
+    
     return best_beta
 
+
+def _plot_3(qr_result, beta_ols):
+    fig, axes = plt.subplot(2,2, figsize = (14,9))
     
+    for idx, driver in enumerate(DRIVERS):
+        ax = axes[idx // 2, idx % 2]
+        q_values = QUANTILES
+        coef_q = [qr_result[q][idx] for q in q_values]
+        ols_val = beta_ols[idx]
+        color = DRIVER_COLORS[driver]
+        max_coef = max(abs(c) for c in coef_q)
+        
+        ax.plot(q_values, coef_q, color = color, lw = 2, marker = "o", marksize = 5, label = "Quantile coff")
+        ax.axhline(ols_val, color = WARN, lw = 1.5, ls = "--", label = f"OLS = {ols_val:.3f}")
+        ax.fill_between(q_values, ols_val, coef_q, alpha= 0.15, color= color)
+        
+        ax.axvspan(0,0.20, alpha = 0.05, color = ACCENT, label = "lower tail")
+        ax.axvspan(0.8,1, alpha = 0.05, color = WARN, label = "upper tail")
+        
+        title_suffix = (
+            'Tail amplification' if max_coef > abs(ols_val) * 1.2
+            else 'Stable across quantiles'
+        )
+        ax.set_xlabel('Quantile')
+        ax.set_ylabel('Coefficient')
+        ax.set_title(f'{driver}: {title_suffix}')
+        ax.legend(fontsize=7)
+        ax.set_xticks(q_values)
+        ax.set_xticklabels([f'{q:.2f}' for q in q_values], fontsize=7)
+
+    plt.tight_layout()
+
+        
 def quantile_regression(df): 
     """
     Fit quantile regression across QUANTILES.
@@ -92,41 +122,10 @@ def quantile_regression(df):
         )
         print(f"  {driver:<10} {q_10:>10.4f} {q_50:>10.4f} {q_90:>10.4f} {ols:>10.4f}  {amplified}")
 
+    _plot_3(qr_result, beta_ols)
+
     return  {
         'qr_results': qr_result,
         'beta_ols':   beta_ols,
         'quantiles':  QUANTILES,
     } 
-
-def plot(qr_result, beta_ols):
-    fig, axes = plt.subplot(2,2, figsize = (14,9))
-    
-    for idx, driver in enumerate(DRIVERS):
-        ax = axes[idx // 2, idx % 2]
-        q_values = QUANTILES
-        coef_q = [qr_result[q][idx] for q in q_values]
-        ols_val = beta_ols[idx]
-        color = DRIVER_COLORS[driver]
-        max_coef = max(abs(c) for c in coef_q)
-        
-        ax.plot(q_values, coef_q, color = color, lw = 2, marker = "o", marksize = 5, label = "Quantile coff")
-        ax.axhline(ols_val, color = WARN, lw = 1.5, ls = "--", label = f"OLS = {ols_val:.3f}")
-        ax.fill_between(q_values, ols_val, coef_q, alpha= 0.15, color= color)
-        
-        ax.axvspan(0,0.20, alpha = 0.05, color = ACCENT, label = "lower tail")
-        ax.axvspan(0.8,1, alpha = 0.05, color = WARN, label = "upper tail")
-        
-        title_suffix = (
-            'Tail amplification' if max_coef > abs(ols_val) * 1.2
-            else 'Stable across quantiles'
-        )
-        ax.set_xlabel('Quantile')
-        ax.set_ylabel('Coefficient')
-        ax.set_title(f'{driver}: {title_suffix}')
-        ax.legend(fontsize=7)
-        ax.set_xticks(q_values)
-        ax.set_xticklabels([f'{q:.2f}' for q in q_values], fontsize=7)
-
-    plt.tight_layout()
-
-        
