@@ -13,48 +13,9 @@ m1_correlation.py — Module 1: Driver Identification & Correlation Analysis
 ==========================================================================
 Identifies which macro drivers have meaningful, stable relationships
 with USD/JPY returns via static and rolling correlation analysis.
-
-Outputs:
-  outputs/01_correlation_analysis.png
 """
 
-
-def correlation_pair(df: pd.DataFrame) -> tuple[dict,dict]:
-    """
-    Compute Pearson, Spearman, Fisher Z-test, and rolling 60-day correlations.
-
-    Returns:
-        corr_results: {driver: {pearson, spearman, p}}
-        roll_corr:    {driver: pd.Series of rolling correlation}
-    """
-    print("\n" + "="*60)
-    print("MODULE 1 — DRIVER IDENTIFICATION & CORRELATION")
-    print("="*60)
- 
-    r = df[TARGET]
-    corr_result = {}
-    for driver in DRIVERS:
-        x = df[driver]
-        pearson_r, pearson_p = stats.pearsonr(r,x)
-        spearman_r, spearman_p = stats.spearmanr(r,x)
-    
-    # Fisher Z-test: H₀ ρ = 0
-    z = 0.5 * np.log((1+pearson_r)/(1-pearson_r + 1e-10 ))
-    se = 1/np.sqrt(len(r) - 3)
-    fisher_p = 2* (1- stats.norm.cdf(abs(z) / se))
-    significant = "statistics meaning" if fisher_p< 0.05 else "X"
-    print(f"  {driver:<10} {pearson_r:>10.4f} {spearman_r:>10.4f} {fisher_p:>10.4f}  {significant}")
-    corr_result[driver] = {"pearson": pearson_r, "spearman": spearman_r, "p_value": fisher_p}
-    
-    
-    #--Rolling 60 days------------
-    roll_cor = {
-        r.rolling(60).corr(df[driver]) for driver in DRIVERS
-    }
-
-    return corr_result, roll_cor
-
-def plot(df, corr_result, roll_cor):
+def _plot_1(df, corr_result, roll_cor):
     fig, axes = plt.subplot(3,1, figsize = (14,11))
     fig.suptitle(
         'Module 1 — Driver Identification: USD/JPY Correlation Analysis',
@@ -106,3 +67,41 @@ def plot(df, corr_result, roll_cor):
             ax.axvline(pd.Timestamp(event_date), color = "white", lw = 0.8, alpha = 0.3)
     plt.tight_layout()
     
+
+
+def correlation_pair(df: pd.DataFrame) -> tuple[dict,dict]:
+    """
+    Compute Pearson, Spearman, Fisher Z-test, and rolling 60-day correlations.
+
+    Returns:
+        corr_results: {driver: {pearson, spearman, p}}
+        roll_corr:    {driver: pd.Series of rolling correlation}
+    """
+    print("\n" + "="*60)
+    print("MODULE 1 — DRIVER IDENTIFICATION & CORRELATION")
+    print("="*60)
+ 
+    r = df[TARGET]
+    corr_result = {}
+    for driver in DRIVERS:
+        x = df[driver]
+        pearson_r, pearson_p = stats.pearsonr(r,x)
+        spearman_r, spearman_p = stats.spearmanr(r,x)
+    
+    # Fisher Z-test: H₀ ρ = 0
+    z = 0.5 * np.log((1+pearson_r)/(1-pearson_r + 1e-10 ))
+    se = 1/np.sqrt(len(r) - 3)
+    fisher_p = 2* (1- stats.norm.cdf(abs(z) / se))
+    significant = "statistics meaning" if fisher_p< 0.05 else "X"
+    print(f"  {driver:<10} {pearson_r:>10.4f} {spearman_r:>10.4f} {fisher_p:>10.4f}  {significant}")
+    corr_result[driver] = {"pearson": pearson_r, "spearman": spearman_r, "p_value": fisher_p}
+    
+    
+    #--Rolling 60 days------------
+    roll_cor = {
+        r.rolling(60).corr(df[driver]) for driver in DRIVERS
+    }
+
+    _plot_1(df, corr_result, roll_cor)
+    
+    return corr_result, roll_cor
