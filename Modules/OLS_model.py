@@ -14,12 +14,43 @@ m2_ols.py — Module 2: OLS Regression — Baseline Model
 Quantifies macro driver → USD/JPY relationships via OLS.
 Runs full residual diagnostics: JB normality, Durbin-Watson,
 Breusch-Pagan heteroskedasticity, and VIF multicollinearity.
-
-Outputs:
-  outputs/02_ols_diagnostics.png
 """
 
-def run(df: pd.DataFrame) -> dict:
+
+
+def _plot_2(df, residual, r_prediction, residual_series, beta, std_beta, 
+         p_value, r2, r2_adjusted, jb_p, dw ):
+    
+    fig, axes = plt.subplot(3,1, figsize = (12,8))
+    fig.subtitle(f'Module 2 — OLS Regression: R²={r2:.3f}, Adj-R²={r2_adjusted:.3f}',
+        fontsize=13, color='#f0f6fc',
+    )
+    
+    #residual over time
+    ax = axes[0]
+    ax.plot(df.index, residual*100, color = GRAY, lw = 0.5, alpha = 0.7)
+    large_residual = residual_series.abs() > residual.abs().quantile(0.99)
+    ax.scatter(df.index[large_residual], residual[large_residual]*100, color = WARN, s = 20, zorder = 5, label = "Top 1% residual")
+    ax.axhline(0, lw = 0.5, color = GRAY)
+    ax.legend()
+    for event_date, event in MACRO_EVENTS.items():
+        ax.axvline(pd.Timestamp(event_date), color = PURPLE, lw = 1.2, alpha = 0.5)
+    
+    #residual distribution
+    ax = axes[1]
+    x_range = np.linspace(residual.min(),residual.max(), 200)
+    ax.hist(residual*100, bins = 60, density = True, color = ACCENT, alpha = 0.5, label = "Residual")
+    ax.plot(x_range*100, stats.norm.pdf(x_range, residual.mean(),residual.std()) / 100, color = OK, lw = 2, label = "Normal fit")
+    ax.set_xlabel("Residual %")
+    ax.set_title("Residual distribution | JB p-value = {jb_p:.4f}   DW = {dw:.3f}"   )
+    ax.legend()
+    
+    plt.tight_layout()
+    
+
+
+
+def ols_model(df: pd.DataFrame) -> dict:
     """
     Fit OLS:  r_USDJPY = α + β₁ΔDXY + β₂ΔVIX + β₃ΔUS10Y + β₄ΔOIL + ε
 
@@ -124,7 +155,8 @@ def run(df: pd.DataFrame) -> dict:
         event_str = f" {event}" if event else "This days wasn't in Marco Events"
         print(f" {date.date()} residual= {value*100:+.3f}% {event_str} ")
     
-    
+    _plot_2(df, r, r_prediction, residual, residual_series, beta, std_beta, p_value, r2, r2_adjust, jb_p, dw)
+        
     return {
         'beta':      beta,
         'beta_orig': beta_orig,
@@ -141,34 +173,4 @@ def run(df: pd.DataFrame) -> dict:
         'bp_p':      bp_p,
         'vif':       vif,
     }
-    
-
-def plot(df, residual, r_prediction, residual_series, beta, std_beta, 
-         p_value, r2, r2_adjusted, jb_p, dw ):
-    
-    fig, axes = plt.subplot(3,1, figsize = (12,8))
-    fig.subtitle(f'Module 2 — OLS Regression: R²={r2:.3f}, Adj-R²={r2_adjusted:.3f}',
-        fontsize=13, color='#f0f6fc',
-    )
-    
-    #residual over time
-    ax = axes[0]
-    ax.plot(df.index, residual*100, color = GRAY, lw = 0.5, alpha = 0.7)
-    large_residual = residual_series.abs() > residual.abs().quantile(0.99)
-    ax.scatter(df.index[large_residual], residual[large_residual]*100, color = WARN, s = 20, zorder = 5, label = "Top 1% residual")
-    ax.axhline(0, lw = 0.5, color = GRAY)
-    ax.legend()
-    for event_date, event in MACRO_EVENTS.items():
-        ax.axvline(pd.Timestamp(event_date), color = PURPLE, lw = 1.2, alpha = 0.5)
-    
-    #residual distribution
-    ax = axes[1]
-    x_range = np.linspace(residual.min(),residual.max(), 200)
-    ax.hist(residual*100, bins = 60, density = True, color = ACCENT, alpha = 0.5, label = "Residual")
-    ax.plot(x_range*100, stats.norm.pdf(x_range, residual.mean(),residual.std()) / 100, color = OK, lw = 2, label = "Normal fit")
-    ax.set_xlabel("Residual %")
-    ax.set_title("Residual distribution | JB p-value = {jb_p:.4f}   DW = {dw:.3f}"   )
-    ax.legend()
-    
-    plt.tight_layout()
     
